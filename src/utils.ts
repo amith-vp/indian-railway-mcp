@@ -2,8 +2,6 @@
 import { html, raw } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
 import { marked } from "marked";
-import type { AuthRequest } from "@cloudflare/workers-oauth-provider";
-import { env } from "cloudflare:workers";
 
 // This file mainly exists as a dumping ground for uninteresting html and CSS
 // to remove clutter and noise from the auth logic. You likely do not need
@@ -178,7 +176,7 @@ export const homeContent = async (req: Request): Promise<HtmlEscapedString> => {
 	// We have the README symlinked into the static directory, so we can fetch it
 	// and render it into HTML
 	const origin = new URL(req.url).origin;
-	const res = await env.ASSETS.fetch(`${origin}/README.md`);
+	const res = await fetch(`${origin}/README.md`);
 	const markdown = await res.text();
 	const content = await marked(markdown);
 	return html`
@@ -186,220 +184,202 @@ export const homeContent = async (req: Request): Promise<HtmlEscapedString> => {
 	`;
 };
 
-export const renderLoggedInAuthorizeScreen = async (
-	oauthScopes: { name: string; description: string }[],
-	oauthReqInfo: AuthRequest,
-) => {
-	return html`
-		<div class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
-			<h1 class="text-2xl font-heading font-bold mb-6 text-gray-900">
-				Authorization Request
-			</h1>
+// Formatting helpers for MCP tool outputs
 
-			<div class="mb-8">
-				<h2 class="text-lg font-semibold mb-3 text-gray-800">
-					MCP Remote Auth Demo would like permission to:
-				</h2>
-				<ul class="space-y-2">
-					${oauthScopes.map(
-						(scope) => html`
-							<li class="flex items-start">
-								<span
-									class="inline-block mr-2 mt-1 text-secondary"
-									>✓</span
-								>
-								<div>
-									<p class="font-medium">${scope.name}</p>
-									<p class="text-gray-600 text-sm">
-										${scope.description}
-									</p>
-								</div>
-							</li>
-						`,
-					)}
-				</ul>
-			</div>
-			<form action="/approve" method="POST" class="space-y-4">
-				<input
-					type="hidden"
-					name="oauthReqInfo"
-					value="${JSON.stringify(oauthReqInfo)}"
-				/>
-				<input type="hidden" name="email" value="user@example.com" />
-				<button
-					type="submit"
-					name="action"
-					value="approve"
-					class="w-full py-3 px-4 bg-secondary text-white rounded-md font-medium hover:bg-secondary/90 transition-colors"
-				>
-					Approve
-				</button>
-				<button
-					type="submit"
-					name="action"
-					value="reject"
-					class="w-full py-3 px-4 border border-gray-300 text-gray-700 rounded-md font-medium hover:bg-gray-50 transition-colors"
-				>
-					Reject
-				</button>
-			</form>
-		</div>
-	`;
-};
+export function formatStationInfo(data: any, station_code: string): string {
+  let formattedText = `TRAINS AT ${station_code} STATION\n\n`;
+  if (data.status === "success" && Array.isArray(data.data) && data.data.length > 0) {
+    (data.data as any[]).forEach((train: any) => {
+      formattedText += `${train.train_no} ${train.train_name} (${train.src}-${train.dest})\n`;
+      let schedInfo = "";
+      if (train.tt_arr === "--") schedInfo = `D:${train.tt_dept}`;
+      else if (train.tt_dept === "--") schedInfo = `A:${train.tt_arr}`;
+      else schedInfo = `A:${train.tt_arr}/D:${train.tt_dept}`;
+      formattedText += `PF:${train.tt_pf} ${schedInfo} `;
+      if (train.exp_arr === "Source") formattedText += `[ORIGIN]`;
+      else if (train.exp_dept === "Destination") formattedText += `[TERMINUS]`;
+      else {
+        const arrStatus = train.exp_arr_delay === "RT" ? "On-time" : `+${train.exp_arr_delay}`;
+        const deptStatus = train.exp_dept_delay === "RT" ? "On-time" : `+${train.exp_dept_delay}`;
+        formattedText += `[Arr:${arrStatus}/Dep:${deptStatus}]`;
+      }
+      formattedText += `\n---\n`;
+    });
+  } else {
+    formattedText += "No train information available for this station.\n";
+  }
+  return formattedText;
+}
 
-export const renderLoggedOutAuthorizeScreen = async (
-	oauthScopes: { name: string; description: string }[],
-	oauthReqInfo: AuthRequest,
-) => {
-	return html`
-		<div class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
-			<h1 class="text-2xl font-heading font-bold mb-6 text-gray-900">
-				Authorization Request
-			</h1>
+export function formatTrainInfo(data: any): string {
+  let formattedText = "";
+  if (data.trainInfo) {
+    const ti = data.trainInfo;
+    formattedText += `TRAIN ${ti.number} ${ti.name} (${ti.type})\n`;
+    formattedText += `Route: ${ti.route}\n`;
+    formattedText += `Runs: ${ti.runningDays} | Classes: ${ti.availableClasses} | Zone: ${ti.zone}\n`;
+    formattedText += `${ti.pantryAvailable ? "Pantry Available" : "No Pantry"} | Booking: ${ti.arp} days in advance\n\n`;
+    if (ti.coachPosition) {
+      formattedText += "COACH POSITION: ";
+      const coaches = Object.entries(ti.coachPosition).map(([_, code]) => code).join("-");
+      formattedText += `${coaches}\n\n`;
+    }
+    formattedText += "SCHEDULE:\n";
+    formattedText += "Stn   Station Name       Dist   Arr    Dep    Platform  Halt\n";
+    formattedText += "--------------------------------------------------------------\n";
+    if (Array.isArray(data.scheduleDetails)) {
+      (data.scheduleDetails as any[]).forEach((station: any) => {
+        const arrTime = station.arrivalTime === "Source" ? "Origin" : station.arrivalTime;
+        const depTime = station.departureTime === "Destination" ? "Terminus" : station.departureTime;
+        const stationName = station.stationName.padEnd(18).substring(0, 18);
+        formattedText += `${station.stationCode.padEnd(6)}${stationName} ${station.distance.toString().padStart(5)} ${arrTime.padStart(6)} ${depTime.padStart(6)} ${station.platform.padStart(6)}   ${station.haltTime || "-"}\n`;
+      });
+    }
+  } else {
+    formattedText = "No train information available.";
+  }
+  return formattedText;
+}
 
-			<div class="mb-8">
-				<h2 class="text-lg font-semibold mb-3 text-gray-800">
-					MCP Remote Auth Demo would like permission to:
-				</h2>
-				<ul class="space-y-2">
-					${oauthScopes.map(
-						(scope) => html`
-							<li class="flex items-start">
-								<span
-									class="inline-block mr-2 mt-1 text-secondary"
-									>✓</span
-								>
-								<div>
-									<p class="font-medium">${scope.name}</p>
-									<p class="text-gray-600 text-sm">
-										${scope.description}
-									</p>
-								</div>
-							</li>
-						`,
-					)}
-				</ul>
-			</div>
-			<form action="/approve" method="POST" class="space-y-4">
-				<input
-					type="hidden"
-					name="oauthReqInfo"
-					value="${JSON.stringify(oauthReqInfo)}"
-				/>
-				<div class="space-y-4">
-					<div>
-						<label
-							for="email"
-							class="block text-sm font-medium text-gray-700 mb-1"
-							>Email</label
-						>
-						<input
-							type="email"
-							id="email"
-							name="email"
-							required
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-						/>
-					</div>
-					<div>
-						<label
-							for="password"
-							class="block text-sm font-medium text-gray-700 mb-1"
-							>Password</label
-						>
-						<input
-							type="password"
-							id="password"
-							name="password"
-							required
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-						/>
-					</div>
-				</div>
-				<button
-					type="submit"
-					name="action"
-					value="login_approve"
-					class="w-full py-3 px-4 bg-primary text-white rounded-md font-medium hover:bg-primary/90 transition-colors"
-				>
-					Log in and Approve
-				</button>
-				<button
-					type="submit"
-					name="action"
-					value="reject"
-					class="w-full py-3 px-4 border border-gray-300 text-gray-700 rounded-md font-medium hover:bg-gray-50 transition-colors"
-				>
-					Reject
-				</button>
-			</form>
-		</div>
-	`;
-};
+export function formatTrainLiveStatus(data: any, train_no: string, date: string): string {
+  let formattedText = `LIVE STATUS: Train ${train_no} on ${date}\n\n`;
+  if (data.status === "success" && Array.isArray(data.data) && data.data.length > 0) {
+    formattedText += "Stn  Name            Dist    Platform  Arrival           Departure\n";
+    formattedText += "-------------------------------------------------------------------\n";
+    (data.data as any[]).forEach((station: any) => {
+      const stationName = station.name.length > 14 ? station.name.substring(0, 14) : station.name.padEnd(14);
+      formattedText += `${station.index.padStart(2)}. ${stationName} `;
+      formattedText += `${station.s_dist.padEnd(8)} ${("PF:" + station.pf).padEnd(6)} `;
+      const arrTime = station.tt_arr === "Source" ? "ORIGIN" : formatTimeStatus(station.tt_arr, station.act_arr);
+      const depTime = station.tt_dept === "Destination" ? "TERMINUS" : formatTimeStatus(station.tt_dept, station.act_dept);
+      formattedText += `${arrTime.padEnd(16)} ${depTime}\n`;
+    });
+  } else {
+    formattedText += "No live status available for this train on the specified date.\n";
+  }
+  return formattedText;
+  function formatTimeStatus(scheduled: string, actual: string): string {
+    if (scheduled === "N/A" || actual === "N/A") return "N/A";
+    const getTimeOnly = (dateTimeStr: string) => {
+      const timeMatch = dateTimeStr.match(/T(\d{2}:\d{2}):/);
+      return timeMatch ? timeMatch[1] : "??:??";
+    };
+    const schedTime = getTimeOnly(scheduled);
+    const actTime = getTimeOnly(actual);
+    if (schedTime === actTime) return schedTime + " (On-time)";
+    else return schedTime + " (" + actTime + ")";
+  }
+}
 
-export const renderApproveContent = async (
-	message: string,
-	status: string,
-	redirectUrl: string,
-) => {
-	return html`
-		<div
-			class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md text-center"
-		>
-			<div class="mb-4">
-				<span
-					class="inline-block p-3 ${
-						status === "success"
-							? "bg-green-100 text-green-800"
-							: "bg-red-100 text-red-800"
-					} rounded-full"
-				>
-					${status === "success" ? "✓" : "✗"}
-				</span>
-			</div>
-			<h1 class="text-2xl font-heading font-bold mb-4 text-gray-900">
-				${message}
-			</h1>
-			<p class="mb-8 text-gray-600">
-				You will be redirected back to the application shortly.
-			</p>
-			<a
-				href="/"
-				class="inline-block py-2 px-4 bg-primary text-white rounded-md font-medium hover:bg-primary/90 transition-colors"
-			>
-				Return to Home
-			</a>
-			${raw(`
-				<script>
-					setTimeout(() => {
-						window.location.href = "${redirectUrl}";
-					}, 2000);
-				</script>
-			`)}
-		</div>
-	`;
-};
+export function formatSearchTrains(data: any, from_station: string, to_station: string, date?: string): string {
+  let formattedText = `TRAINS FROM ${from_station} TO ${to_station} (${date || 'Today'})\n\n`;
+  if (data.trains && Array.isArray(data.trains) && data.trains.length > 0) {
+    formattedText += "Train    Name                Departure      Arrival        Duration  Classes  Days\n";
+    formattedText += "---------------------------------------------------------------------------------\n";
+    (data.trains as any[]).forEach((train: any) => {
+      const trainName = train.trainName.length > 20 ? train.trainName.substring(0, 17) + "..." : train.trainName.padEnd(20);
+      formattedText += `${train.trainNumber} ${trainName} `;
+      formattedText += `${train.departureStation} ${train.departureTime} → ${train.arrivalStation} ${train.arrivalTime} `;
+      formattedText += `${train.duration.padEnd(9)}`;
+      formattedText += `${train.classAvailability.join(",").padEnd(8)} `;
+      const days = train.runningDays.map((day: string) => day.charAt(0)).join("");
+      formattedText += `${days}\n`;
+    });
+  } else {
+    formattedText += "No trains found between these stations on the specified date.\n";
+  }
+  return formattedText;
+}
 
-export const renderAuthorizationApprovedContent = async (redirectUrl: string) => {
-	return renderApproveContent("Authorization approved!", "success", redirectUrl);
-};
+export function formatStationCodeResults(matchingStations: any[], resultsByTerm: Record<string, string[]>): string {
+  let resultText = '';
+  if (Object.keys(resultsByTerm).length > 1) {
+    for (const [term, matches] of Object.entries(resultsByTerm)) {
+      resultText += `Matching '${term}':\n${matches.join('\n')}\n\n`;
+    }
+  } else {
+    resultText = matchingStations.map(station => `${station.name}: ${station.code}`).join('\n');
+  }
+  return `Station search results:\n${resultText}`;
+}
 
-export const renderAuthorizationRejectedContent = async (redirectUrl: string) => {
-	return renderApproveContent("Authorization rejected.", "error", redirectUrl);
-};
+export function formatTrainDelayInfo(data: any, period: string): string {
+  let formattedText = "";
+  if (data.trainInfo) {
+    const ti = data.trainInfo;
+    formattedText += `TRAIN ${ti.number} ${ti.name} (${ti.type})\n`;
+    formattedText += `Route: ${ti.route} | Runs: ${ti.runningDays}\n`;
+    formattedText += `Classes: ${ti.availableClasses} | Zone: ${ti.zone}\n\n`;
+  }
+  formattedText += `DELAY STATISTICS (Period: ${getPeriodText(period)})\n`;
+  formattedText += "Station        Code   Avg Delay (mins)\n";
+  formattedText += "--------------------------------------\n";
+  if (data.delayDetails && Array.isArray(data.delayDetails)) {
+    (data.delayDetails as any[]).forEach((station: any) => {
+      const stationName = station.stationName.length > 13 ? station.stationName.substring(0, 12) + "." : station.stationName.padEnd(13);
+      const stationCode = station.stationCode.padEnd(6);
+      const delayMinutes = station.avgDelayMinutes.toString().padStart(3);
+      formattedText += `${stationName} ${stationCode} ${delayMinutes}\n`;
+    });
+  } else {
+    formattedText += "No delay data available for this train.\n";
+  }
+  if (data.timestamp) formattedText += `\nData as of: ${data.timestamp}\n`;
+  return formattedText;
+  function getPeriodText(period: string): string {
+    const periodMap: {[key: string]: string} = {
+      '1w': 'Last Week', '1m': 'Last Month', '3m': 'Last 3 Months', '6m': 'Last 6 Months', '1y': 'Last Year'
+    };
+    return periodMap[period] || period;
+  }
+}
 
-export const parseApproveFormBody = async (body: {
-	[x: string]: string | File;
-}) => {
-	const action = body.action as string;
-	const email = body.email as string;
-	const password = body.password as string;
-	let oauthReqInfo: AuthRequest | null = null;
-	try {
-		oauthReqInfo = JSON.parse(body.oauthReqInfo as string) as AuthRequest;
-	} catch (e) {
-		oauthReqInfo = null;
-	}
+export function formatSeatStatus(data: any): string {
+  let formattedText = "";
+  if (data.status === "success" && data.data) {
+    const trainData = data.data;
+    formattedText += `SEAT AVAILABILITY: ${trainData.train_no} ${trainData.train_name}\n`;
+    formattedText += `Route: ${trainData.from_station} → ${trainData.to_station} | Quota: ${trainData.quota}\n\n`;
+    const fareByClass: Record<string, string> = {};
+    if (Array.isArray(trainData.availability) && trainData.availability.length > 0) {
+      const firstDateClasses = trainData.availability[0].classes;
+      Object.entries(firstDateClasses).forEach(([className, info]: [string, any]) => {
+        fareByClass[className] = info.fare;
+      });
+    }
+    formattedText += "Available Classes and Fares:\n";
+    Object.entries(fareByClass).forEach(([className, fare]) => {
+      formattedText += `${className}: ₹${fare}  `;
+    });
+    formattedText += "\n\n";
+    formattedText += "Date       | Class | Status\n";
+    formattedText += "-----------------------------\n";
+    if (Array.isArray(trainData.availability)) {
+      trainData.availability.forEach((dateData: { date: string; classes: Record<string, { status: string; fare: string }> }) => {
+        const date = dateData.date;
+        const classes = dateData.classes;
+        Object.entries(classes).forEach(([className, info]: [string, any], idx) => {
+          const status = info.status;
+          const dateDisplay = idx === 0 ? date : '          ';
+          formattedText += `${dateDisplay} | ${className.padEnd(5)} | ${status}\n`;
+        });
+        formattedText += "-----------------------------\n";
+      });
+    }
+  } else {
+    formattedText += "No seat availability information found for this train and route.\n";
+  }
+  return formattedText;
+}
 
-	return { action, oauthReqInfo, email, password };
-};
+export function formatTrainCodeResults(matchingTrains: any[], resultsByTerm: Record<string, string[]>): string {
+  let resultText = '';
+  if (Object.keys(resultsByTerm).length > 1) {
+    for (const [term, matches] of Object.entries(resultsByTerm)) {
+      resultText += `Matching '${term}':\n${matches.join('\n')}\n\n`;
+    }
+  } else {
+    resultText = matchingTrains.map(train => `${train.code}: ${train.name}`).join('\n');
+  }
+  return `Train search results:\n${resultText}`;
+}
