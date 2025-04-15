@@ -1,117 +1,161 @@
-# Remote MCP Server on Cloudflare
+# Indian Railway MCP
 
-Let's get a remote MCP server up-and-running on Cloudflare Workers complete with OAuth login!
+## Installation & Claude Desktop Integration
 
-## Develop locally
+### Access the remote MCP server from Claude Desktop
 
-```bash
-# clone the repository
-git clone git@github.com:cloudflare/ai.git
+1. **Open Claude Desktop** and go to:  
+   `Settings` → `Developer` → `Edit Config`
 
-# install dependencies
-cd ai
-npm install
-
-# run locally
-npx nx dev remote-mcp-server
-```
-
-You should be able to open [`http://localhost:8787/`](http://localhost:8787/) in your browser
-
-## Connect the MCP inspector to your server
-
-To explore your new MCP api, you can use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
-
-- Start it with `npx @modelcontextprotocol/inspector`
-- [Within the inspector](http://localhost:5173), switch the Transport Type to `SSE` and enter `http://localhost:8787/sse` as the URL of the MCP server to connect to, and click "Connect"
-- You will navigate to a (mock) user/password login screen. Input any email and pass to login.
-- You should be redirected back to the MCP Inspector and you can now list and call any defined tools!
-
-<div align="center">
-  <img src="img/mcp-inspector-sse-config.png" alt="MCP Inspector with the above config" width="600"/>
-</div>
-
-<div align="center">
-  <img src="img/mcp-inspector-successful-tool-call.png" alt="MCP Inspector with after a tool call" width="600"/>
-</div>
-
-## Connect Claude Desktop to your local MCP server
-
-The MCP inspector is great, but we really want to connect this to Claude! Follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config to find your configuration file.
-
-Open the file in your text editor and replace it with this configuration:
+2. **Replace/Add the config content** with:
 
 ```json
 {
   "mcpServers": {
-    "math": {
+    "cloudflare": {
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://localhost:8787/sse"
+        "https://railway-mcp.amithv.workers.dev/sse"
       ]
     }
   }
 }
 ```
 
-This will run a local proxy and let Claude talk to your MCP server over HTTP
+3. **Restart Claude Desktop.**  
+The tools will be available in Claude.
 
-When you open Claude a browser window should open and allow you to login. You should see the tools available in the bottom right. Given the right prompt Claude should ask to call the tool.
+---
 
-<div align="center">
-  <img src="img/available-tools.png" alt="Clicking on the hammer icon shows a list of available tools" width="600"/>
-</div>
+## Available Tools
 
-<div align="center">
-  <img src="img/claude-does-math-the-fancy-way.png" alt="Claude answers the prompt 'I seem to have lost my calculator and have run out of fingers. Could you use the math tool to add 23 and 19?' by invoking the MCP add tool" width="600"/>
-</div>
+Below are the available tools exposed by this MCP server, with a sample response for each. (Order: search, seat, train info, live status, delay, station code, train code)
 
-## Deploy to Cloudflare
+### 1. Search-trains
+- **Description:** Searches for available trains between two stations on a given date.
+- **Sample response:**
+  ```
+  TRAINS FROM ERS TO SBC (20250415)
+  
+  Train    Name                Departure      Arrival        Duration  Classes  Days
+  ---------------------------------------------------------------------------------
+  12677    YPR SAMPARK KRANTI  ERS 06:45 → SBC 20:30  13h45m  2A,3A,SL  SMTWTFS
+  16525    ISLAND EXPRESS      ERS 09:00 → SBC 23:55  14h55m  2A,3A,SL  SMTWTFS
+  ...
+  ```
 
-1. `npx wrangler kv namespace create OAUTH_KV`
-2. Follow the guidance to add the kv namespace ID to `wrangler.jsonc`
-3. `npm run deploy`
+### 2. Get-seat-availability
+- **Description:** Checks seat availability for a train between two stations on upcoming dates, including fare and class information.
+- **Sample response:**
+  ```
+  SEAT AVAILABILITY: 12617 MANGALA LDWEEP EXP
+  Route: ERS → NZM | Quota: GN
+  
+  Available Classes and Fares:
+  2A: ₹2450  3A: ₹1700  SL: ₹650  
+  
+  Date       | Class | Status
+  -----------------------------
+  2025-04-16 | 2A    | AVAILABLE 2
+             | 3A    | WL 5
+             | SL    | AVAILABLE 10
+  -----------------------------
+  ...
+  ```
 
-## Call your newly deployed remote MCP server from a remote MCP client
+### 3. Get-train-info
+- **Description:** Fetches detailed information about a specific Indian Railways train, including its route and schedule.
+- **Sample response:**
+  ```
+  TRAIN 12617 MANGALA LDWEEP EXP (Superfast)
+  Route: ERS-NZM
+  Runs: SMTWTFS | Classes: 2A,3A,SL | Zone: SR
+  Pantry Available | Booking: 120 days in advance
+  
+  COACH POSITION: EOG-SLR-2A-3A-3A-SLR
+  
+  SCHEDULE:
+  Stn   Station Name       Dist   Arr    Dep    Platform  Halt
+  --------------------------------------------------------------
+  ERS   Ernakulam Jn       0     Origin 10:00   1        -
+  MAJN  Mangalore Jn       400   14:00  14:10  2        10
+  ...
+  NZM   Hazrat Nizamuddin  2760  13:15  Terminus 5      -
+  ```
 
-Just like you did above in "Develop locally", run the MCP inspector:
+### 4. Get-train-live-status
+- **Description:** Fetches the current live running status of a specific train, including location, delays, and expected arrivals.
+- **Sample response:**
+  ```
+  LIVE STATUS: Train 12617 on 2025-04-15
+  
+  Stn  Name            Dist    Platform  Arrival           Departure
+  -------------------------------------------------------------------
+  1.  Ernakulam Jn     0       PF:1      10:00 (On-time)   10:00 (On-time)
+  2.  Mangalore Jn     400     PF:2      14:00 (14:05)     14:10 (14:15)
+  ...
+  25. Hazrat Nizamuddin 2760   PF:5      13:20 (13:25)     TERMINUS
+  ```
 
-`npx @modelcontextprotocol/inspector@latest`
+### 5. Get-train-delay-info
+- **Description:** Retrieves average delay information for a specific train at each station for a specified time period.
+- **Sample response:**
+  ```
+  TRAIN 12617 MANGALA LDWEEP EXP (Superfast)
+  Route: ERS-NZM | Runs: SMTWTFS
+  Classes: 2A,3A,SL | Zone: SR
+  
+  DELAY STATISTICS (Period: Last Month)
+  Station        Code   Avg Delay (mins)
+  --------------------------------------
+  Ernakulam Jn   ERS    2
+  Mangalore Jn   MAJN   5
+  ...
+  Hazrat Nizamuddin NZM 10
+  ```
 
-Then enter the `workers.dev` URL (ex: `worker-name.account-name.workers.dev/sse`) of your Worker in the inspector as the URL of the MCP server to connect to, and click "Connect".
+### 6. Get-live-station-info
+- **Description:** Retrieves live train schedule information for a specific Indian Railway station.
+- **Sample response:**
+  ```
+  TRAINS AT NDLS STATION
+  
+  12002 BHOPAL SHTBDI (NDLS-BPL)
+  PF:1 A:06:00/D:06:10 [Arr:On-time/Dep:On-time]
+  ---
+  12952 MUMBAI RAJDHANI (NDLS-BCT)
+  PF:3 A:16:25/D:16:35 [Arr:+10/Dep:+10]
+  ---
+  ...
+  ```
 
-You've now connected to your MCP server from a remote MCP client.
+### 7. Get-station-code
+- **Description:** Finds station code(s) by station name(s). Supports multiple names, variations, and case-insensitive matching.
+- **Sample response:**
+  ```
+  Station search results:
+  New Delhi: NDLS
+  Trivandrum: TVC
+  Matching 'Delhi':
+  New Delhi: NDLS
+  Old Delhi: DLI
+  ...
+  ```
 
-## Connect Claude Desktop to your remote MCP server
+### 8. Get-train-code
+- **Description:** Finds train code (number) by train name. Supports multiple train names, variations, and case-insensitive matching.
+- **Sample response:**
+  ```
+  Train search results:
+  Rajdhani Express: 12951
+  Shatabdi Express: 12001
+  Matching 'Rajdhani':
+  12951: Mumbai Rajdhani
+  12952: Delhi Rajdhani
+  ...
+  ```
 
-Update the Claude configuration file to point to your `workers.dev` URL (ex: `worker-name.account-name.workers.dev/sse`) and restart Claude 
+---
 
-```json
-{
-  "mcpServers": {
-    "math": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://worker-name.account-name.workers.dev/sse"
-      ]
-    }
-  }
-}
-```
-
-## Debugging
-
-Should anything go wrong it can be helpful to restart Claude, or to try connecting directly to your
-MCP server on the command line with the following command.
-
-```bash
-npx mcp-remote http://localhost:8787/sse
-```
-
-In some rare cases it may help to clear the files added to `~/.mcp-auth`
-
-```bash
-rm -rf ~/.mcp-auth
-```
+Each tool returns a formatted text response suitable for direct use in Claude or other MCP-compatible clients.
