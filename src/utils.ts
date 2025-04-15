@@ -175,10 +175,10 @@ export const layout = (content: HtmlEscapedString | string, title: string) => ht
 export const homeContent = async (req: Request): Promise<HtmlEscapedString> => {
 	// We have the README symlinked into the static directory, so we can fetch it
 	// and render it into HTML
-	// const origin = new URL(req.url).origin;
-	// const res = await fetch(`${origin}/README.md`);
-	// const markdown = await res.text();
-	// const content = await marked(markdown);
+	const origin = new URL(req.url).origin;
+	const res = await fetch(`${origin}/README.md`);
+	const markdown = await res.text();
+	const content = await marked(markdown);
 	return html`
 		<div class="max-w-4xl mx-auto markdown"></div>
 	`;
