@@ -30,11 +30,8 @@ export class MyMCP extends McpAgent {
   );
 
   async init() {
-  const apiURL = await env.OAUTH_KV.get("API_URL");
-  const apiPassword = await env.OAUTH_KV.get("API_PASSWORD");
-  if (!apiURL || !apiPassword) {
-    throw new Error("API_URL or API_PASSWORD is not set in OAUTH_KV");
-  }
+  const apiURL = "https://railwayapi.amithv.xyz";
+  
     // Tool: Get-live-station-info
     this.server.tool(
       "Get-live-station-info",
@@ -60,9 +57,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/station-live`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
-            },
+              'Content-Type': 'application/json',            },
             body: JSON.stringify(requestBody)
           });
           const data = await response.json() as any;
@@ -88,8 +83,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/train-schedule`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
           });
@@ -117,8 +111,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/train-live`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
           });
@@ -149,8 +142,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/search-trains`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
           });
@@ -223,8 +215,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/train-delay`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
           });
@@ -253,8 +244,7 @@ export class MyMCP extends McpAgent {
           const response = await fetch(`${apiURL}/seat-status`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-password': apiPassword
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestBody)
           });
