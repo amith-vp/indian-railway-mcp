@@ -28,7 +28,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "mcp-remote",
+        "mcp-remote@next",
         "https://railway-mcp.amithv.xyz/mcp"
       ]
     }

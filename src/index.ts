@@ -29,7 +29,6 @@ const server = new McpServer({
 }, { capabilities: { logging: {} } });
 
 
-
 // Tool: Get-live-station-info
 server.tool(
   "Get-live-station-info",
