@@ -274,9 +274,7 @@ server.tool(
       });
       const data = await response.json();
       
-      console.log("Seat availability data:", data); // Log the response data for debugging
       const formattedText = formatSeatStatus(data);
-      console.log("Formatted seat availability text:", formattedText); // Log the formatted text for debugging
       return { content: [{ type: "text", text: formattedText }] };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
