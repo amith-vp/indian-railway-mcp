@@ -369,7 +369,7 @@ app.delete('/mcp', async (req: Request, res: Response) => {
 });
 
 // Start the server
-const PORT = 3000;
+const PORT = 1235;
 setupServer().then(() => {
   app.listen(PORT, () => {
     console.log(`MCP Streamable HTTP Server listening on port ${PORT}`);
