@@ -1,6 +1,18 @@
 # Indian Railway MCP
 
-## Installation & Claude Desktop Integration
+
+
+## Claude Desktop Integration
+
+> **Important:**
+> First, install the latest development version of `mcp-remote` globally:
+>
+> ```sh
+> npm i -g mcp-remote@next
+> ```
+>
+> Streamable HTTP is still in development and not yet released officially in `mcp-remote`, so you must use `mcp-remote@next`.
+
 
 ### Access the remote MCP server from Claude Desktop
 
@@ -12,11 +24,12 @@
 ```json
 {
   "mcpServers": {
-    "cloudflare": {
+    "railways": {
       "command": "npx",
       "args": [
+        "-y",
         "mcp-remote",
-        "https://railway-mcp.amithv.workers.dev/sse"
+        "https://railway-mcp.amithv.xyz/mcp"
       ]
     }
   }
@@ -46,20 +59,21 @@ Below are the available tools exposed by this MCP server, with a sample response
   ```
 
 ### 2. Get-seat-availability
-- **Description:** Checks seat availability for a train between two stations on upcoming dates, including fare and class information.
+- **Description:** Checks seat availability for a train between two stations on upcoming dates. Returns a formatted text with train details, seat availability status (available or waitlisted), and fare information for different classes and dates.
 - **Sample response:**
   ```
   SEAT AVAILABILITY: 12617 MANGALA LDWEEP EXP
   Route: ERS → NZM | Quota: GN
-  
-  Available Classes and Fares:
-  2A: ₹2450  3A: ₹1700  SL: ₹650  
   
   Date       | Class | Status
   -----------------------------
   2025-04-16 | 2A    | AVAILABLE 2
              | 3A    | WL 5
              | SL    | AVAILABLE 10
+  -----------------------------
+  2025-04-17 | 2A    | AVAILABLE 5
+             | 3A    | WL 5
+             | SL    | REGRET
   -----------------------------
   ...
   ```
