@@ -164,7 +164,7 @@ server.tool(
   "Find station code by station name. Supports multiple station names, variations, and case-insensitive matching. Example: getStationCode for 'Delhi,Trivandrum' would return codes for both cities.",
   {
     station_name: z.string().describe("The name(s) of the railway station(s) (e.g., 'New Delhi' or multiple names separated by commas like 'Delhi,Mumbai,Chennai')."),
-    variations: z.string().optional().describe("Variations of station names to search for (e.g., for 'Calcutta,Bangalore' specify 'Kolkata,Bengaluru').")
+    variations: z.string().optional().describe("Variations and alternate names of station to search for (e.g., for 'Calcutta,Bangalore,Majestic' return 'Kolkata,Bengaluru,KSR etc').")
   },
   async ({ station_name, variations }): Promise<CallToolResult> => {
     try {
@@ -209,7 +209,7 @@ server.tool(
   "Find train code (train number) by train name. Supports multiple train names, variations, and case-insensitive matching. Example: getTrainCode for 'Rajdhani,Shatabdi' would return codes for trains containing these names.",
   {
     train_name: z.string().describe("The name(s) of the train(s) to search for (e.g., 'Rajdhani' or multiple names separated by commas like 'Rajdhani,Shatabdi,Duronto')."),
-    variations: z.string().optional().describe("Variations of train names to search for (e.g., for 'Express' specify 'Exp,SF Exp').")
+    variations: z.string().optional().describe("Variations and alternative train names to search for (e.g., for 'Express' specify 'Exp,SF Exp').")
   },
   async ({ train_name, variations }): Promise<CallToolResult> => {
     try {
