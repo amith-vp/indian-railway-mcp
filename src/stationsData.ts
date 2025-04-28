@@ -7378,7 +7378,7 @@ export const stationsData = [
     {"code":"SMTL","name":"SIMARIATAL"},
     {"code":"SMU","name":"SAMBHU"},
     {"code":"SMV","name":"SUMAOLI"},
-    {"code":"SMVB","name":"SMVT BENGALURU"},
+    {"code":"SMVT","name":"SMVT BENGALURU"},
     {"code":"SMVJ","name":"SHRI MAHAVEERJI"},
     {"code":"SMWA","name":"SOMESHWARA"},
     {"code":"SMX","name":"SIMURALI"},
