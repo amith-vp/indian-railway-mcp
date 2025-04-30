@@ -5,13 +5,11 @@
 ## Claude Desktop Integration
 
 > **Important:**
-> First, install the latest development version of `mcp-remote` globally:
+> First, install the latest version of `mcp-remote` globally:
 >
 > ```sh
-> npm i -g mcp-remote@next
+> npm i -g mcp-remote
 > ```
->
-> Streamable HTTP is still in development and not yet released officially in `mcp-remote`, so you must use `mcp-remote@next`.
 
 
 ### Access the remote MCP server from Claude Desktop
@@ -28,7 +26,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "mcp-remote@next",
+        "mcp-remote",
         "https://railway-mcp.amithv.xyz/mcp"
       ]
     }
