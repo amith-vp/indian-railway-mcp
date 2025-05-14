@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/amith-vp-indian-railway-mcp-badge.png)](https://mseep.ai/app/amith-vp-indian-railway-mcp)
+
 # Indian Railway MCP
 
 
